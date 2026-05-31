@@ -1,0 +1,13 @@
+[project]
+name = "modded-grapheneos"
+version = "0.1.0"
+description = "My personal rooted + modded GrapheneOS buildscripts"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "pydantic>=2.13.4",
+    "tomlkit>=0.15.0",
+]
+
+[tool.uv]
+exclude-newer = "1 week"
