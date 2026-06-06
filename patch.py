@@ -7,16 +7,16 @@ import argparse
 import dataclasses
 import logging
 import os
-from pathlib import Path
 import subprocess
 import tempfile
 import zipfile
+from pathlib import Path
+
 import tomlkit
 
-from lib import external, modules
+from lib import external, modules, dependencies
 from lib import filesystem
 from lib.filesystem import CpioFs, CpioInfo, ExtFs, ExtInfo
-
 
 logger = logging.getLogger(__name__)
 
@@ -327,11 +327,21 @@ def run(args: argparse.Namespace, temp_dir: Path):
 
 def main():
     args = parse_args()
+    binaries_dir = Path(os.getcwd()) / '.bin'
 
     logging.basicConfig(
         level=logging.DEBUG,
         format='\x1b[1m[%(levelname)s] %(message)s\x1b[0m',
     )
+
+    # Download tool binaries
+    dependencies.download_avbroot(binaries_dir)
+    dependencies.download_afsr(binaries_dir)
+    if not args.skip_custota_tool:
+        dependencies.download_custota_tool(binaries_dir)
+
+    # Add binaries dir to path
+    os.environ['PATH'] = str(binaries_dir) + ':' + os.environ['PATH']
 
     with tempfile.TemporaryDirectory() as temp_dir:
         exit_code = 0
