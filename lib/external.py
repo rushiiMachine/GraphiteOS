@@ -1,12 +1,11 @@
 # SPDX-FileCopyrightText: 2024-2025 Andrew Gunnerson
 # SPDX-License-Identifier: GPL-3.0-only
 
-from collections.abc import Iterable, Sequence
 import dataclasses
 import logging
-from pathlib import Path
 import subprocess
-
+from collections.abc import Iterable, Sequence
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -54,13 +53,13 @@ def unpack_ota(ota: Path, output_dir: Path, partitions: Iterable[str]):
 
 
 def patch_ota(
-    input_ota: Path,
-    output_ota: Path,
-    key_avb: SigningKey,
-    key_ota: SigningKey,
-    cert_ota: Path,
-    replace: dict[str, Path],
-    extra_args: Sequence[str],
+        input_ota: Path,
+        output_ota: Path,
+        key_avb: SigningKey,
+        key_ota: SigningKey,
+        cert_ota: Path,
+        replace: dict[str, Path],
+        extra_args: Sequence[str],
 ):
     image_names = ', '.join(sorted(replace.keys())) if replace else '(none)'
     logger.info(f'Patching OTA with replaced images: {image_names}: {output_ota}')
@@ -108,10 +107,10 @@ def unpack_avb(image: Path, output_dir: Path):
 
 
 def pack_avb(
-    image: Path,
-    input_dir: Path,
-    key: SigningKey,
-    recompute_size: bool,
+        image: Path,
+        input_dir: Path,
+        key: SigningKey,
+        recompute_size: bool,
 ):
     logger.info(f'Packing AVB image: {image}')
 
@@ -221,3 +220,64 @@ def generate_update_info(update_info: Path, location: str):
         '--file', update_info,
         '--location', location,
     ])
+
+
+def generate_key(key: SigningKey):
+    logger.info(f'Generating key')
+
+    cmd = [
+        'avbroot', 'key', 'generate-key',
+        '--output', key.key.absolute(),
+    ]
+
+    if key.pass_env is not None:
+        cmd.append('--pass-env-var')
+        cmd.append(key.pass_env)
+    elif key.pass_file is not None:
+        cmd.append('--pass-file')
+        cmd.append(key.pass_file)
+
+    subprocess.check_call(cmd)
+
+
+def generate_cert(out: Path, key_ota: SigningKey, subject: str | None = None):
+    logger.info(f'Generating cert')
+
+    cmd = [
+        'avbroot', 'key', 'generate-cert',
+        '--validity', '36500',  # 100 years
+        '--key', key_ota.key.absolute(),
+        '--output', out.absolute(),
+    ]
+
+    if subject is not None:
+        cmd.append('--subject')
+        cmd.append(subject)
+
+    if key_ota.pass_env is not None:
+        cmd.append('--pass-env-var')
+        cmd.append(key_ota.pass_env)
+    elif key_ota.pass_file is not None:
+        cmd.append('--pass-file')
+        cmd.append(key_ota.pass_file)
+
+    subprocess.check_call(cmd)
+
+
+def encode_avb_key(out: Path, key_avb: SigningKey):
+    logger.info(f'Encoding AVB key')
+
+    cmd = [
+        'avbroot', 'key', 'encode-avb',
+        '--key', key_avb.key.absolute(),
+        '--output', out.absolute(),
+    ]
+
+    if key_avb.pass_env is not None:
+        cmd.append('--pass-avb-env-var')
+        cmd.append(key_avb.pass_env)
+    elif key_avb.pass_file is not None:
+        cmd.append('--pass-avb-file')
+        cmd.append(key_avb.pass_file)
+
+    subprocess.check_call(cmd)

@@ -10,6 +10,7 @@ import tempfile
 from pathlib import Path
 
 from lib import commands, dependencies
+from lib.commands.keys import command_keys
 from lib.commands.patch import command_patch
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,8 @@ def main():
         if args.command == 'patch':
             with tempfile.TemporaryDirectory() as temp_dir:
                 command_patch(args, Path(temp_dir))
+        elif args.command == 'keys':
+            command_keys(args)
     except Exception as e:
         failure = True
         logging.error(f'Failed to run {args.command} command!', exc_info=e)
