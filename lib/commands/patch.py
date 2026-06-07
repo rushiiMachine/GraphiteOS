@@ -197,6 +197,12 @@ def command_patch(args: argparse.Namespace, temp_dir: Path):
     need_ext_fs: set[str] = set()
     need_sepolicies = False
 
+    # Get OTA partitions
+    partitions = external.list_ota(args.input)
+
+    # Non GKI-2.0 devices such as the Pixel 4a contain sepolicies on boot partition
+    sepolicies_partition = 'vendor_boot' if ('vendor_boot' in partitions) else 'boot'
+
     for name, constructor in modules.all_modules().items():
         zip_path: Path | None = getattr(args, f'module_{name}')
         sig_path: Path | None = getattr(args, f'module_{name}_sig')
@@ -220,7 +226,7 @@ def command_patch(args: argparse.Namespace, temp_dir: Path):
     # If we're patching the SELinux policy, then we need to patch both copies of
     # the precompiled policy.
     if need_sepolicies:
-        need_boot_fs.add('vendor_boot')
+        need_boot_fs.add(sepolicies_partition)
         need_ext_fs.add('vendor')
 
     # Verify OTA.
@@ -274,7 +280,7 @@ def command_patch(args: argparse.Namespace, temp_dir: Path):
     # date and needs to be recompiled from the CIL files during boot.
     if need_sepolicies:
         selinux_policies = [
-            boot_fs['vendor_boot'].tree / 'sepolicy',
+            boot_fs[sepolicies_partition].tree / 'sepolicy',
             ext_fs['vendor'].tree / 'etc' / 'selinux' / 'precompiled_sepolicy',
         ]
     else:

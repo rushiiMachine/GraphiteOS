@@ -17,6 +17,19 @@ class SigningKey:
     pass_file: Path | None
 
 
+def list_ota(ota: Path) -> list[str]:
+    logger.info(f'Listing OTA partitions: {ota}')
+
+    cmd = [
+        'avbroot', 'ota', 'list',
+        '--input', ota,
+    ]
+
+    return (subprocess.check_output(cmd)
+            .decode()
+            .splitlines())
+
+
 def verify_ota(ota: Path, public_key_avb: Path | None, cert_ota: Path | None):
     logger.info(f'Verifying OTA: {ota}')
 

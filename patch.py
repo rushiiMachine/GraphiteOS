@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 def main():
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.DEBUG,  # TODO: support DEBUG env var
         format='\x1b[1m[%(levelname)s] %(message)s\x1b[0m',
     )
 
