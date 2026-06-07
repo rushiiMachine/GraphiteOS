@@ -13,57 +13,58 @@ def args_keys(subparsers: argparse._SubParsersAction):
     parser = subparsers.add_parser(
         'keys',
         help='Generates all signing keys',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     parser.add_argument(
         '--sign-key-avb',
         type=Path,
-        help='Path to AVB private key for signing output OTA',
+        help='Output AVB private key file for signing output OTA',
         default=default_keys_dir / 'avb.key',
     )
     parser.add_argument(
         '--flashing-key-avb',
         type=Path,
-        help='Path to AVB public key to be flashed onto the device',
+        help='Output AVB public key file to be flashed onto the device',
         default=default_keys_dir / 'avb_pkmd.bin',
     )
     parser.add_argument(
         '--sign-key-ota',
         type=Path,
-        help='Path to OTA private key for signing output OTA',
+        help='Output OTA private key file for signing output OTA',
         default=default_keys_dir / 'ota.key',
     )
     parser.add_argument(
         '--sign-cert-ota',
         type=Path,
-        help='Path to OTA certificate for signing output OTA',
+        help='Output OTA certificate file for signing output OTA',
         default=default_keys_dir / 'ota.crt',
     )
     parser.add_argument(
         '--sign-cert-subject',
         type=str,
-        help='Subject name to be set on the certificate',
+        help='OTA certificate subject name',
         default='CN=avbroot'
     )
     parser.add_argument(
         '--pass-avb-env-var',
         type=str,
-        help='Private key passphrase environment variable for AVB signing',
+        help='Private key passphrase environment variable for AVB signing key',
     )
     parser.add_argument(
         '--pass-ota-env-var',
         type=str,
-        help='Private key passphrase environment variable for OTA signing',
+        help='Private key passphrase environment variable for OTA signing key',
     )
     parser.add_argument(
         '--pass-avb-file',
         type=Path,
-        help='Private key passphrase file for AVB signing',
+        help='Private key passphrase file for AVB signing key',
     )
     parser.add_argument(
         '--pass-ota-file',
         type=Path,
-        help='Private key passphrase file for OTA signing',
+        help='Private key passphrase file for OTA signing key',
     )
 
 
@@ -91,13 +92,17 @@ def command_keys(args: argparse.Namespace):
 
         file.parent.mkdir(parents=True, exist_ok=True)
 
+    logger.info('Generating AVB private signing key')
     external.generate_key(sign_key_avb)
+    logger.info('Generating OTA private signing key')
     external.generate_key(sign_key_ota)
+    logger.info('Generating OTA certificate')
     external.generate_cert(sign_cert_ota, sign_key_ota, sign_cert_subject)
+    logger.info('Encoding AVB public key')
     external.encode_avb_key(avb_public_key, sign_key_avb)
 
     logger.info('Successfully generated keys! Make sure to create a backup prior to relocking your bootloader!\n'
+                f'    AVB public key:  {avb_public_key}\n'
                 f'    AVB private key: {sign_key_avb.key}\n'
-                f'    AVB flashing pubkey: {avb_public_key}\n'
                 f'    OTA private key: {sign_key_ota.key}\n'
                 f'    OTA certificate: {sign_cert_ota}')

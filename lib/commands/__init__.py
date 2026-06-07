@@ -6,7 +6,8 @@ from lib.commands.patch import args_patch
 
 
 def parse_args() -> Namespace:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     subparsers = parser.add_subparsers(dest='command', required=True)
 
     args_patch(subparsers)

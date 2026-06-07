@@ -223,7 +223,7 @@ def generate_update_info(update_info: Path, location: str):
 
 
 def generate_key(key: SigningKey):
-    logger.info(f'Generating key')
+    logger.debug(f'Generating key at {key.key}')
 
     cmd = [
         'avbroot', 'key', 'generate-key',

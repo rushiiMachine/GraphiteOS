@@ -1,6 +1,7 @@
 import argparse
 import dataclasses
 import logging
+import os
 import zipfile
 from pathlib import Path
 
@@ -10,77 +11,82 @@ from lib import external, filesystem, modules
 from lib.filesystem import CpioFs, CpioInfo, ExtFs, ExtInfo
 
 logger = logging.getLogger(__name__)
+default_keys_dir = Path(os.getcwd()) / '.keys'
 
 
 def args_patch(subparsers: argparse._SubParsersAction):
     parser = subparsers.add_parser(
         'patch',
         help='Patches and resigns an OTA',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     parser.add_argument(
         '--input',
         type=Path,
         required=True,
-        help='Input OTA',
+        help='Input OTA zip',
     )
     parser.add_argument(
         '--output',
         type=Path,
-        help='Output OTA',
+        help='Output OTA zip',
+    )
+    parser.add_argument(
+        '--generate-custota',
+        action='store_true',
+        help='Generate a Custota csig and manifest json',
     )
     parser.add_argument(
         '--verify-public-key-avb',
         type=Path,
-        help='AVB public key for verifying input OTA',
+        help='AVB public key file for verifying input OTA',
     )
     parser.add_argument(
         '--verify-cert-ota',
         type=Path,
-        help='OTA certificate for verifying input OTA',
+        help='OTA certificate file for verifying input OTA',
     )
     parser.add_argument(
         '--sign-key-avb',
         type=Path,
         required=True,
-        help='AVB private key for signing output OTA',
+        help='AVB private key file for signing output OTA',
+        default=default_keys_dir / 'avb.key',
     )
     parser.add_argument(
         '--sign-key-ota',
         type=Path,
         required=True,
-        help='OTA private key for signing output OTA',
+        help='OTA private key file for signing output OTA',
+        default=default_keys_dir / 'ota.key',
     )
     parser.add_argument(
         '--sign-cert-ota',
         type=Path,
         required=True,
-        help='OTA certificate for signing output OTA',
-    )
-    parser.add_argument(
-        '--debug-shell',
-        action='store_true',
-        help='Spawn a debug shell before cleaning up temporary directory',
+        help='OTA certificate file for signing output OTA',
+        default=default_keys_dir / 'ota.crt',
     )
     parser.add_argument(
         '--pass-avb-env-var',
         type=str,
-        help='Private key passphrase environment variable for AVB signing',
+        help='Private key passphrase environment variable for AVB signing key',
     )
     parser.add_argument(
         '--pass-ota-env-var',
         type=str,
-        help='Private key passphrase environment variable for OTA signing',
+        help='Private key passphrase environment variable for OTA signing key',
     )
     parser.add_argument(
         '--pass-avb-file',
         type=Path,
-        help='Private key passphrase file for AVB signing',
+        help='Private key passphrase file for AVB signing key',
     )
     parser.add_argument(
         '--pass-ota-file',
         type=Path,
-        help='Private key passphrase file for OTA signing',
+        help='Private key passphrase file for OTA signing key',
     )
     parser.add_argument(
         '--patch-arg',
@@ -88,9 +94,9 @@ def args_patch(subparsers: argparse._SubParsersAction):
         help='Extra argument to pass to `avbroot ota patch`',
     )
     parser.add_argument(
-        '--skip-custota-tool',
+        '--debug-shell',
         action='store_true',
-        help='Skip creating Custota csig file and update JSON file',
+        help='Spawn a debug shell before cleaning up temporary directory',
     )
 
     for name in modules.all_modules():
@@ -310,7 +316,7 @@ def command_patch(args: argparse.Namespace, temp_dir: Path):
         args.patch_arg,
     )
 
-    if not args.skip_custota_tool:
+    if args.generate_custota:
         # Generate Custota csig.
         external.generate_csig(args.output, sign_key_ota, args.sign_cert_ota)
 

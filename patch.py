@@ -27,8 +27,11 @@ def main():
 
     # Download tool binaries
     dependencies.download_avbroot(binaries_dir)
-    dependencies.download_afsr(binaries_dir)
-    dependencies.download_custota_tool(binaries_dir)
+    if args.command == 'patch':
+        dependencies.download_afsr(binaries_dir)
+
+        if getattr(args, 'generate_custota', False):
+            dependencies.download_custota_tool(binaries_dir)
 
     # Add binaries dir to path
     os.environ['PATH'] = str(binaries_dir) + ':' + os.environ['PATH']
