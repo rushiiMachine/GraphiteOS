@@ -1,31 +1,39 @@
 # SPDX-FileCopyrightText: 2024-2025 Andrew Gunnerson
 # SPDX-License-Identifier: GPL-3.0-only
 
-from collections.abc import Iterable
 import logging
+import zipfile
+from collections.abc import Iterable
 from pathlib import Path
 from typing import override
-import zipfile
 
-from lib import modules
+from lib import modules, dependencies
 from lib.filesystem import CpioFs, ExtFs
 from lib.initscript import InitScript
 from lib.modules import Module, ModuleRequirements
-
 
 logger = logging.getLogger(__name__)
 
 
 class OEMUnlockOnBootModule(Module):
-    def __init__(self, zip: Path, sig: Path) -> None:
-        super().__init__()
-
-        modules.verify_ssh_sig(zip, sig, modules.SSH_PUBLIC_KEY_CHENXIAOLONG)
-
-        self.zip: Path = zip
+    @override
+    @staticmethod
+    def create_custom(module: Path) -> Module:
+        return OEMUnlockOnBootModule(module)
 
     @override
-    def requirements(self) -> ModuleRequirements:
+    @staticmethod
+    def create_download(modules_dir: Path) -> Module:
+        return OEMUnlockOnBootModule(dependencies.download_oemunlockonboot(modules_dir))
+
+    def __init__(self, module: Path) -> None:
+        super().__init__()
+
+        self.zip: Path = module
+
+    @override
+    @staticmethod
+    def requirements() -> ModuleRequirements:
         return ModuleRequirements(
             boot_images=set(),
             ext_images={'system'},

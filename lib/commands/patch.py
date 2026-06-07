@@ -50,21 +50,18 @@ def args_patch(subparsers: argparse._SubParsersAction):
     parser.add_argument(
         '--sign-key-avb',
         type=Path,
-        required=True,
         help='AVB private key file for signing output OTA',
         default=default_keys_dir / 'avb.key',
     )
     parser.add_argument(
         '--sign-key-ota',
         type=Path,
-        required=True,
         help='OTA private key file for signing output OTA',
         default=default_keys_dir / 'ota.key',
     )
     parser.add_argument(
         '--sign-cert-ota',
         type=Path,
-        required=True,
         help='OTA certificate file for signing output OTA',
         default=default_keys_dir / 'ota.crt',
     )
@@ -93,23 +90,22 @@ def args_patch(subparsers: argparse._SubParsersAction):
         action='append',
         help='Extra argument to pass to `avbroot ota patch`',
     )
+
+    for name in modules.all_modules():
+        parser.add_argument(
+            f'--module-{name}',
+            nargs='?',
+            const=True,
+            type=Path,
+            default=None,
+            help=f'{name} module zip. If path omitted, it will be automatically downloaded.',
+        )
+
     parser.add_argument(
         '--debug-shell',
         action='store_true',
         help='Spawn a debug shell before cleaning up temporary directory',
     )
-
-    for name in modules.all_modules():
-        parser.add_argument(
-            f'--module-{name}',
-            type=Path,
-            help=f'{name} module zip',
-        )
-        parser.add_argument(
-            f'--module-{name}-sig',
-            type=Path,
-            help=f'{name} module zip signature',
-        )
 
 
 @dataclasses.dataclass
@@ -163,7 +159,7 @@ def get_ota_metadata(ota: Path) -> dict[str, str]:
     return props
 
 
-def command_patch(args: argparse.Namespace, temp_dir: Path):
+def command_patch(args: argparse.Namespace, temp_dir: Path, binaries_dir: Path):
     logger.info("Patching OTA...")
 
     # Set advanced args defaults
@@ -173,13 +169,6 @@ def command_patch(args: argparse.Namespace, temp_dir: Path):
 
     if args.patch_arg is None:
         args.patch_arg = ['--rootless']
-
-    for name in modules.all_modules():
-        sig_key = f'module_{name}_sig'
-
-        if getattr(args, sig_key) is None:
-            zip_path: Path = getattr(args, f'module_{name}')
-            setattr(args, sig_key, Path(f'{zip_path}.sig'))
 
     sign_key_avb = external.SigningKey(
         args.sign_key_avb,
@@ -203,14 +192,8 @@ def command_patch(args: argparse.Namespace, temp_dir: Path):
     # Non GKI-2.0 devices such as the Pixel 4a contain sepolicies on boot partition
     sepolicies_partition = 'vendor_boot' if ('vendor_boot' in partitions) else 'boot'
 
-    for name, constructor in modules.all_modules().items():
-        zip_path: Path | None = getattr(args, f'module_{name}')
-        sig_path: Path | None = getattr(args, f'module_{name}_sig')
-
-        if zip_path is None or sig_path is None:
-            continue
-
-        module = constructor(zip_path, sig_path)
+    for name, module in modules.create_modules(binaries_dir, args).items():
+        logger.info(f'Will be injecting module {name}')
         inject_modules.append(module)
 
         requirements = module.requirements()

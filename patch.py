@@ -40,7 +40,7 @@ def main():
     try:
         if args.command == 'patch':
             with tempfile.TemporaryDirectory() as temp_dir:
-                command_patch(args, Path(temp_dir))
+                command_patch(args, Path(temp_dir), binaries_dir)
         elif args.command == 'keys':
             command_keys(args)
     except Exception as e:

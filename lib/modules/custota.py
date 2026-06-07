@@ -1,36 +1,43 @@
 # SPDX-FileCopyrightText: 2024-2026 Andrew Gunnerson
 # SPDX-License-Identifier: GPL-3.0-only
 
-from collections.abc import Iterable
 import logging
 import os
-from pathlib import Path
-import pathlib
 import shutil
 import tempfile
-from typing import override
 import zipfile
+from collections.abc import Iterable
+from pathlib import Path
+from typing import override
 
-from lib import modules
+from lib import modules, dependencies
 from lib.filesystem import CpioFs, ExtFs
 from lib.linux import linux_android_abi, linux_run
 from lib.modules import Module, ModuleRequirements
-
 
 logger = logging.getLogger(__name__)
 
 
 class CustotaModule(Module):
-    def __init__(self, zip: Path, sig: Path) -> None:
+    @override
+    @staticmethod
+    def create_custom(module: Path) -> Module:
+        return CustotaModule(module)
+
+    @override
+    @staticmethod
+    def create_download(modules_dir: Path) -> Module:
+        return CustotaModule(dependencies.download_custota(modules_dir))
+
+    def __init__(self, module: Path) -> None:
         super().__init__()
 
-        modules.verify_ssh_sig(zip, sig, modules.SSH_PUBLIC_KEY_CHENXIAOLONG)
-
-        self.zip: Path = zip
+        self.zip: Path = module
         self.abi: str = linux_android_abi()
 
     @override
-    def requirements(self) -> ModuleRequirements:
+    @staticmethod
+    def requirements() -> ModuleRequirements:
         return ModuleRequirements(
             boot_images=set(),
             ext_images={'system'},
