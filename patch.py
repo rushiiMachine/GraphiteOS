@@ -10,6 +10,7 @@ import tempfile
 from pathlib import Path
 
 from lib import commands, dependencies
+from lib.commands.encode_keys import command_encode_keys
 from lib.commands.keys import command_keys
 from lib.commands.patch import command_patch
 
@@ -43,6 +44,8 @@ def main():
                 command_patch(args, Path(temp_dir), binaries_dir)
         elif args.command == 'keys':
             command_keys(args)
+        elif args.command == 'encode-keys':
+            command_encode_keys(args)
     except Exception as e:
         failure = True
         logging.error(f'Failed to run {args.command} command!', exc_info=e)
