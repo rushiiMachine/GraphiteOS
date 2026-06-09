@@ -48,7 +48,7 @@ class TwemojiModule(Module):
         return ModuleRequirements(
             boot_images=set(),
             ext_images={'system'},
-            selinux_patching=True,
+            selinux_patching=False,
         )
 
     @override

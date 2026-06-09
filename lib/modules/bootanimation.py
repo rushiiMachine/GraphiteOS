@@ -53,7 +53,7 @@ class BootAnimationModule(Module):
         return ModuleRequirements(
             boot_images=set(),
             ext_images={'product'},
-            selinux_patching=True,
+            selinux_patching=False,
         )
 
     @override

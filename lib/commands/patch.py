@@ -8,6 +8,7 @@ from pathlib import Path
 import tomlkit
 
 from lib import external, filesystem, modules
+from lib.dependencies import download_magisk, download_magisk_pixincreate
 from lib.filesystem import CpioFs, CpioInfo, ExtFs, ExtInfo
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,7 @@ def args_patch(subparsers: argparse._SubParsersAction):
     )
 
     parser.add_argument(
+        '-i',
         '--input',
         type=Path,
         required=True,
@@ -88,7 +90,22 @@ def args_patch(subparsers: argparse._SubParsersAction):
     parser.add_argument(
         '--patch-arg',
         action='append',
-        help='Extra argument to pass to `avbroot ota patch`',
+        help='Extra arguments to pass to `avbroot ota patch`',
+        default=['--rootless'],
+    )
+    parser.add_argument(
+        '--magisk',
+        type=str,
+        nargs='?',
+        const='topjohnwu',
+        default=None,
+        help='Applies Magisk boot patches. This accepts either a path to a Magisk APK, '
+             '"topjohnwu", "pixincreate", or if none specified, defaults to original Magisk (topjohnwu).',
+    )
+    parser.add_argument(
+        '--magisk-preinit-device',
+        type=str,
+        help='Magisk preinit block device (version >=25211 only)'
     )
 
     for name in modules.all_modules():
@@ -167,8 +184,34 @@ def command_patch(args: argparse.Namespace, temp_dir: Path, binaries_dir: Path):
     if args.output is None:
         args.output = Path(f'{args.input}.patched')
 
-    if args.patch_arg is None:
-        args.patch_arg = ['--rootless']
+    match args.magisk:
+        case None:
+            magisk = None
+        case 'topjohnwu':
+            logger.info('Will be injecting original Magisk')
+            magisk = download_magisk(binaries_dir)
+        case 'pixincreate':
+            logger.info('Will be injecting Magisk fork pixincreate for GrapheneOS')
+            magisk = download_magisk_pixincreate(binaries_dir)
+        case _:
+            if not Path(args.magisk).is_file():
+                raise Exception(f'Specified Magisk APK file does not exist: {args.magisk}')
+            else:
+                magisk = Path(args.magisk)
+                logger.info(f'Will be injecting custom Magisk: {args.magisk}')
+
+    if magisk is not None:
+        if '--rootless' in args.patch_arg:
+            args.patch_arg.remove('--rootless')
+
+        if args.magisk_preinit_device is None:
+            logger.fatal(f'Injecting Magisk requires a --magisk-preinit-device to be specified!')
+            exit(1)
+
+        args.patch_arg.append('--magisk')
+        args.patch_arg.append(magisk)
+        args.patch_arg.append('--magisk-preinit-device')
+        args.patch_arg.append(args.magisk_preinit_device)
 
     sign_key_avb = external.SigningKey(
         args.sign_key_avb,

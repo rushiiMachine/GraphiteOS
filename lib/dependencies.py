@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import shutil
@@ -109,6 +110,26 @@ def _download_chenxiaolong_inner(file: Path, url: str, name: str):
         raise Exception(f'Failed to verify {name} artifact signature') from e
 
 
+def download_file(out: Path, url: str, hash_sha256: str | None = None):
+    if out.exists():
+        return
+
+    try:
+        with requests.get(url, stream=True) as resp:
+            resp.raise_for_status()
+            with out.open('wb') as file:
+                shutil.copyfileobj(resp.raw, file)
+    except Exception as e:
+        raise Exception(f'Failed to download file {url}') from e
+
+    if hash_sha256 is not None:
+        with out.open('rb') as f:
+            digest = hashlib.file_digest(f, 'sha256')
+
+        if digest.hexdigest() != hash_sha256:
+            raise Exception(f'Failed to verify hash of {url}')
+
+
 # Download avbroot with a minimum version of 3.30.0
 def download_avbroot(binaries_dir: Path):
     _download_chenxiaolong_binary(binaries_dir, 'avbroot', '3.30.0')
@@ -140,3 +161,24 @@ def download_msd(modules_dir: Path) -> Path:
 
 def download_oemunlockonboot(modules_dir: Path) -> Path:
     return _download_chenxiaolong_module(modules_dir, 'OEMUnlockOnBoot', "1.3")
+
+
+def download_magisk(modules_dir: Path) -> Path:
+    version = '30.7'
+    sha256 = 'e0d32d2123532860f97123d927b1bb86c4e08e6fd8a48bfc6b5bee0afae9ebd5'
+
+    file = modules_dir / f'magisk-{version}.apk'
+    url = f'https://github.com/topjohnwu/Magisk/releases/download/v{version}/Magisk-v{version}.apk'
+
+    download_file(file, url, sha256)
+    return file
+
+def download_magisk_pixincreate(modules_dir: Path) -> Path:
+    version = '30.7'
+    sha256 = 'bdba6ab37d7b6d00981af4a82446fdbc1884da06a5f44359259670db3809ea28'
+
+    file = modules_dir / f'magisk-pixincreate-{version}.apk'
+    url = f'https://github.com/pixincreate/Magisk/releases/download/v{version}/app-release.apk'
+
+    download_file(file, url, sha256)
+    return file
