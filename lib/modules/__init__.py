@@ -50,6 +50,7 @@ class Module(ABC):
 def all_modules() -> dict[str, type[Module]]:
     from lib.modules.alterinstaller import AlterInstallerModule
     from lib.modules.bcr import BCRModule
+    from lib.modules.bootanimation import BootAnimationModule
     from lib.modules.custota import CustotaModule
     from lib.modules.msd import MSDModule
     from lib.modules.oemunlockonboot import OEMUnlockOnBootModule
@@ -58,6 +59,7 @@ def all_modules() -> dict[str, type[Module]]:
     return {
         'alterinstaller': AlterInstallerModule,
         'bcr': BCRModule,
+        'bootanimation': BootAnimationModule,
         'custota': CustotaModule,
         'msd': MSDModule,
         'oemunlockonboot': OEMUnlockOnBootModule,

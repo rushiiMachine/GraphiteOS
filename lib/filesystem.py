@@ -5,9 +5,9 @@ import dataclasses
 import datetime
 import logging
 import os
-from pathlib import Path, PurePosixPath
 import re
-from typing import Annotated, BinaryIO, ClassVar, Literal, TextIO, override
+from pathlib import Path, PurePosixPath
+from typing import Annotated, BinaryIO, ClassVar, Literal, TextIO
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, PlainSerializer
 
@@ -166,6 +166,7 @@ class ExtFs:
         path: PurePosixPath,
         file_type: ExtFileType,
         mode: int,
+        label: str | None = None,
     ):
         if self._find(path):
             raise EntryExists(path)
@@ -179,8 +180,13 @@ class ExtFs:
 
         logger.info(f'Adding {file_type} filesystem entry: {path}')
 
-        path_str = str(path)
-        label = next(c[1] for c in self.contexts if c[0].fullmatch(path_str))
+        # Find selinux label
+        if label is None:
+            path_str = str(path)
+            label = next(c[1] for c in self.contexts if c[0].fullmatch(path_str))
+        else:
+            # TODO(rushii): is this null terminator needed?
+            label += "\0"
 
         # Inherit uid, gid, and timestamps from the parent.
         self.info.entries.append(ExtEntry(
@@ -228,12 +234,13 @@ class ExtFs:
         path: str | os.PathLike[str],
         open_mode: str,
         mode: int = 0o644,
+        label: str | None = None,
     ) -> BinaryIO | TextIO:
         abs_path, tree_path = self._get_paths(path)
 
         if 'w' in open_mode or 'a' in open_mode or 'x' in open_mode:
             try:
-                self._add_entry(abs_path, 'RegularFile', mode)
+                self._add_entry(abs_path, 'RegularFile', mode, label=label)
             except EntryExists:
                 if 'x' in open_mode:
                     raise
