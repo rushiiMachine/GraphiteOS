@@ -16,7 +16,6 @@ from lib.commands.patch import command_patch
 
 logger = logging.getLogger(__name__)
 
-
 def main():
     logging.basicConfig(
         level=logging.DEBUG,  # TODO: support DEBUG env var
