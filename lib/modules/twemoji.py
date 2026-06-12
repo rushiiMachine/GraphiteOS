@@ -1,17 +1,19 @@
+import argparse
 import logging
 import shutil
 from collections.abc import Iterable
 from pathlib import Path
 from typing import override
 
-import requests
-
+from lib import dependencies
+from lib.external import BINARIES_DIR
 from lib.filesystem import CpioFs, ExtFs
 from lib.modules import Module, ModuleRequirements
 
 logger = logging.getLogger(__name__)
 
 TWEMOJI_TTF_VERSION = '17.0.2'
+TWEMOJI_SHA256_HASH = '795b1c0fb2b89e9341826aa36fdee6510edcdee2ad6226e0d386130ab0ea2910'
 TWEMOJI_TTF_URL = \
     f'https://github.com/JoeBlakeB/ttf-twemoji/releases/download/{TWEMOJI_TTF_VERSION}/Twemoji-{TWEMOJI_TTF_VERSION}.ttf'
 
@@ -19,28 +21,40 @@ TARGET_FONT_PATH = '/system/fonts/NotoColorEmoji.ttf'
 
 
 class TwemojiModule(Module):
-    @override
-    @staticmethod
-    def create_custom(module: Path) -> Module:
-        return TwemojiModule(module)
-
-    @override
-    @staticmethod
-    def create_download(modules_dir: Path) -> Module:
-        font_file = modules_dir / f'twemoji-{TWEMOJI_TTF_VERSION}.ttf'
-
-        if not font_file.is_file():
-            with requests.get(TWEMOJI_TTF_URL, stream=True) as resp:
-                resp.raise_for_status()
-                with font_file.open('wb') as file:
-                    shutil.copyfileobj(resp.raw, file)
-
-        return TwemojiModule(font_file)
-
     def __init__(self, font: Path) -> None:
         super().__init__()
 
         self.font: Path = font
+
+    @override
+    @staticmethod
+    def create(args: argparse.Namespace) -> TwemojiModule | None:
+        value: Path | bool | None = args.module_twemoji
+
+        if value:
+            path = BINARIES_DIR / f'twemoji-{TWEMOJI_TTF_VERSION}.ttf'
+            dependencies.download_file(path, TWEMOJI_TTF_URL, TWEMOJI_SHA256_HASH)
+            return TwemojiModule(path)
+        elif isinstance(value, Path):
+            if not value.is_file():
+                raise ValueError('TwemojiModule font path does not exist!')
+            return TwemojiModule(value)
+        else:
+            return None
+
+    @override
+    @staticmethod
+    def register_args(parser: argparse._ActionsContainer):
+        parser.add_argument(
+            '--module-twemoji',
+            help='Replace default system emoji font with Twemoji.\n'
+                 'Specifying a custom font file will inject that font instead.',
+            metavar='<FONT_PATH>',
+            type=Path,
+            nargs='?',
+            const=True,
+            default=None,
+        )
 
     @override
     @staticmethod

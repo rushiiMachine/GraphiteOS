@@ -1,3 +1,4 @@
+import argparse
 import logging
 import shutil
 from collections.abc import Iterable
@@ -23,20 +24,6 @@ BOOTANIMATION_SELINUX = 'u:object_r:system_file:s0'
 
 
 class BootAnimationModule(Module):
-    @override
-    @staticmethod
-    def create_custom(module: Path) -> Module:
-        return BootAnimationModule(bootanimation=module)
-
-    @override
-    @staticmethod
-    def create_download(modules_dir: Path) -> Module:
-        assets = resources.files(__package__) / '..' / 'assets'
-        bootanimation = assets / 'bootanimation.zip'
-        bootanimation_dark = assets / 'bootanimation-dark.zip'
-
-        return BootAnimationModule(bootanimation, bootanimation_dark)
-
     def __init__(
         self,
         bootanimation: Path | Traversable,
@@ -46,6 +33,39 @@ class BootAnimationModule(Module):
 
         self.bootanimation: Path | Traversable = bootanimation
         self.bootanimation_dark: Path | Traversable | None = bootanimation_dark
+
+    @override
+    @staticmethod
+    def create(args: argparse.Namespace) -> BootAnimationModule | None:
+        value: Path | bool | None = args.module_bootanimation
+
+        if value:
+            assets = resources.files(__package__) / '..' / 'assets'
+            bootanimation = assets / 'bootanimation.zip'
+            bootanimation_dark = assets / 'bootanimation-dark.zip'
+
+            return BootAnimationModule(bootanimation, bootanimation_dark)
+        elif isinstance(value, Path):
+            if not value.is_file():
+                raise ValueError('BootAnimationModule module path does not exist!')
+
+            return BootAnimationModule(value)
+        else:
+            return None
+
+    @override
+    @staticmethod
+    def register_args(parser: argparse._ActionsContainer):
+        parser.add_argument(
+            '--module-bootanimation',
+            help='Replaces or adds stock Pixel boot animations to the system image.\n'
+                 'Specifying a custom bootanimation.zip will inject that instead.',
+            metavar='<ZIP>',
+            type=Path,
+            nargs='?',
+            const=True,
+            default=None,
+        )
 
     @override
     @staticmethod

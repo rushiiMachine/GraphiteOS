@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2024-2026 Andrew Gunnerson
 # SPDX-License-Identifier: GPL-3.0-only
-
+import argparse
 import logging
 import os
 import shutil
@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import override
 
 from lib import modules, dependencies
+from lib.external import BINARIES_DIR
 from lib.filesystem import CpioFs, ExtFs
 from lib.initscript import InitScript
 from lib.linux import linux_android_abi, linux_run
@@ -20,21 +21,38 @@ logger = logging.getLogger(__name__)
 
 
 class MSDModule(Module):
-    @override
-    @staticmethod
-    def create_custom(module: Path) -> Module:
-        return MSDModule(module)
-
-    @override
-    @staticmethod
-    def create_download(modules_dir: Path) -> Module:
-        return MSDModule(dependencies.download_msd(modules_dir))
-
     def __init__(self, module: Path) -> None:
         super().__init__()
 
         self.zip: Path = module
         self.abi: str = linux_android_abi()
+
+    @override
+    @staticmethod
+    def create(args: argparse.Namespace) -> MSDModule | None:
+        value: Path | bool | None = args.module_msd
+
+        if value:
+            return MSDModule(dependencies.download_msd(BINARIES_DIR))
+        elif isinstance(value, Path):
+            if not value.is_file():
+                raise ValueError('MSDModule module path does not exist!')
+            return MSDModule(value)
+        else:
+            return None
+
+    @override
+    @staticmethod
+    def register_args(parser: argparse._ActionsContainer):
+        parser.add_argument(
+            '--module-msd',
+            help='Apply module for emulating mass storage devices over USB.',
+            metavar='<ZIP>',
+            type=Path,
+            nargs='?',
+            const=True,
+            default=None,
+        )
 
     @override
     @staticmethod

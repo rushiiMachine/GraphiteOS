@@ -1,48 +1,53 @@
 import argparse
 import base64
 import logging
-import os
 from pathlib import Path
 
+from lib.external import KEYS_DIR
+
 logger = logging.getLogger(__name__)
-default_keys_dir = Path(os.getcwd()) / '.keys'
 
 
-def args_encode_keys(subparsers: argparse._SubParsersAction):
+def register(subparsers: argparse._SubParsersAction):
     parser = subparsers.add_parser(
         'encode-keys',
-        help='Encodes all necessary signing keys as base64 to be used as environment variables',
+        help='Encode OTA signing keys to be used as environment variables in CI',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        allow_abbrev=False,
+        suggest_on_error=True,
     )
 
     parser.add_argument(
-        '--sign-key-avb',
+        '--signing-key-avb',
+        help='AVB private key file for signing output OTA.',
+        metavar='<avb.key>',
         type=Path,
-        help='AVB private key file for signing output OTA',
-        default=default_keys_dir / 'avb.key',
+        default=KEYS_DIR / 'avb.key'
     )
     parser.add_argument(
-        '--sign-key-ota',
+        '--signing-key-ota',
+        help='OTA private key file for signing output OTA.',
+        metavar='<ota.key>',
         type=Path,
-        help='OTA private key file for signing output OTA',
-        default=default_keys_dir / 'ota.key',
+        default=KEYS_DIR / 'ota.key'
     )
     parser.add_argument(
-        '--sign-cert-ota',
+        '--signing-cert-ota',
+        help='OTA certificate file for signing output OTA.',
+        metavar='<ota.crt>',
         type=Path,
-        help='OTA certificate file for signing output OTA',
-        default=default_keys_dir / 'ota.crt',
+        default=KEYS_DIR / 'ota.crt'
     )
 
 
-def command_encode_keys(args: argparse.Namespace):
+def run(args: argparse.Namespace, _temp_dir: Path):
     logger.info('Encoding signing keys...')
 
-    with args.sign_key_avb.open('rb') as f:
+    with args.signing_key_avb.open('rb') as f:
         sign_key_avb = base64.standard_b64encode(f.read()).decode('utf-8')
-    with args.sign_key_ota.open('rb') as f:
+    with args.signing_key_ota.open('rb') as f:
         sign_key_ota = base64.standard_b64encode(f.read()).decode('utf-8')
-    with args.sign_cert_ota.open('rb') as f:
+    with args.signing_cert_ota.open('rb') as f:
         sign_cert_ota = base64.standard_b64encode(f.read()).decode('utf-8')
 
     logger.info('Add these to your CI, if necessary. '

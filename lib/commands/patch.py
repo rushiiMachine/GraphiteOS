@@ -1,183 +1,133 @@
 import argparse
 import dataclasses
 import logging
-import os
 import zipfile
 from pathlib import Path
 
 import tomlkit
 
 from lib import external, filesystem, modules
+from lib.commands.common import register_keys_args
 from lib.dependencies import download_magisk, download_magisk_pixincreate
+from lib.external import BINARIES_DIR, KeyFile, InputFile
 from lib.filesystem import CpioFs, CpioInfo, ExtFs, ExtInfo
 
 logger = logging.getLogger(__name__)
-default_keys_dir = Path(os.getcwd()) / '.keys'
 
 
-def args_patch(subparsers: argparse._SubParsersAction):
+def register(subparsers: argparse._SubParsersAction):
     parser = subparsers.add_parser(
         'patch',
-        help='Patches and resigns an OTA',
+        help='Patch and resign an OTA',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        allow_abbrev=False,
+        suggest_on_error=True,
     )
+    parser.set_defaults()
 
-    parser.add_argument(
+    group_input = parser.add_argument_group(
+        title='Input',
+        description='Input OTA options',
+    )
+    group_input.add_argument(
         '-i',
         '--input',
+        help='Input OTA zip',
+        metavar='<FILE>',
         type=Path,
         required=True,
-        help='Input OTA zip',
     )
-    parser.add_argument(
-        '--output',
-        type=Path,
-        help='Output OTA zip',
-    )
-    parser.add_argument(
-        '--generate-custota',
-        action='store_true',
-        help='Generate a Custota csig and manifest json',
-    )
-    parser.add_argument(
+    group_input.add_argument(
         '--verify-public-key-avb',
+        help='AVB public key file for verifying input OTA (optional)',
+        metavar='<original_avb_pkmd.bin>',
         type=Path,
-        help='AVB public key file for verifying input OTA',
     )
-    parser.add_argument(
+    group_input.add_argument(
         '--verify-cert-ota',
+        help='OTA certificate file for verifying input OTA (optional)',
+        metavar='<original_ota.crt>',
         type=Path,
-        help='OTA certificate file for verifying input OTA',
     )
-    parser.add_argument(
-        '--sign-key-avb',
+
+    group_output = parser.add_argument_group(
+        title='Output',
+        description='Patched OTA output options',
+    )
+    group_output.add_argument(
+        '--output',
+        help='Output OTA zip. Defaults to input + ".patched"',
+        metavar='<FILE>',
         type=Path,
-        help='AVB private key file for signing output OTA',
-        default=default_keys_dir / 'avb.key',
     )
-    parser.add_argument(
-        '--sign-key-ota',
-        type=Path,
-        help='OTA private key file for signing output OTA',
-        default=default_keys_dir / 'ota.key',
+    group_output.add_argument(
+        '--generate-custota',
+        help='Generate a Custota csig and manifest json',
+        action='store_true',
     )
-    parser.add_argument(
-        '--sign-cert-ota',
-        type=Path,
-        help='OTA certificate file for signing output OTA',
-        default=default_keys_dir / 'ota.crt',
+
+    register_keys_args(parser)
+
+    group_root = parser.add_argument_group(
+        title='Root',
+        description='Magisk patching options.'
     )
-    parser.add_argument(
-        '--pass-avb-env-var',
-        type=str,
-        help='Private key passphrase environment variable for AVB signing key',
-    )
-    parser.add_argument(
-        '--pass-ota-env-var',
-        type=str,
-        help='Private key passphrase environment variable for OTA signing key',
-    )
-    parser.add_argument(
-        '--pass-avb-file',
-        type=Path,
-        help='Private key passphrase file for AVB signing key',
-    )
-    parser.add_argument(
-        '--pass-ota-file',
-        type=Path,
-        help='Private key passphrase file for OTA signing key',
-    )
-    parser.add_argument(
-        '--patch-arg',
-        action='append',
-        help='Extra arguments to pass to `avbroot ota patch`',
-        default=['--rootless'],
-    )
-    parser.add_argument(
+    group_root.add_argument(
         '--magisk',
+        help='Applies Magisk boot patches. This accepts either a path to a Magisk APK, '
+             '"topjohnwu", "pixincreate", or if none specified, defaults to original Magisk (topjohnwu).',
+        metavar='<APK>',
         type=str,
         nargs='?',
         const='topjohnwu',
         default=None,
-        help='Applies Magisk boot patches. This accepts either a path to a Magisk APK, '
-             '"topjohnwu", "pixincreate", or if none specified, defaults to original Magisk (topjohnwu).',
     )
-    parser.add_argument(
+    group_root.add_argument(
         '--magisk-preinit-device',
+        help='Magisk preinit block device (version >=25211 only)',
+        metavar='<PARTITION>',
         type=str,
-        help='Magisk preinit block device (version >=25211 only)'
     )
 
-    for name in modules.all_modules():
-        parser.add_argument(
-            f'--module-{name}',
-            nargs='?',
-            const=True,
-            type=Path,
-            default=None,
-            help=f'{name} module zip. If path omitted, it will be automatically downloaded.',
-        )
+    group_modules = parser.add_argument_group(
+        title='Modules',
+        description='Custom modules to be applied directly to the OTA.'
+    )
+    for module in modules.all_modules().values():
+        module.register_args(group_modules)
 
-    parser.add_argument(
-        '--debug-shell',
-        action='store_true',
-        help='Spawn a debug shell before cleaning up temporary directory',
+    group_misc = parser.add_argument_group(
+        title='Miscellaneous',
+        description='Other niche configuration options',
+    )
+    group_misc.add_argument(
+        '--patch-arg',
+        help='Extra arguments to pass to `avbroot ota patch`',
+        metavar='<ARGS...>',
+        action='append',
+        default=['--rootless'],
     )
 
 
-@dataclasses.dataclass
-class BootImagePaths:
-    image: Path
-    unpacked: Path
-    raw_image: Path
-    ramdisk: Path
-    metadata: Path
-    tree: Path
-
-    def __init__(self, images_dir: Path, unpacked_dir: Path, name: str) -> None:
-        self.image = images_dir / f'{name}.img'
-        self.unpacked = unpacked_dir / name
-        self.raw_image = self.unpacked / 'raw.img'
-        self.ramdisk = self.unpacked / 'ramdisk.img.0'
-        self.metadata = self.unpacked / 'cpio.toml'
-        self.tree = self.unpacked / 'cpio_tree'
-
-
-@dataclasses.dataclass
-class ExtImagePaths:
-    image: Path
-    unpacked: Path
-    raw_image: Path
-    metadata: Path
-    tree: Path
-
-    def __init__(self, images_dir: Path, unpacked_dir: Path, name: str) -> None:
-        self.image = images_dir / f'{name}.img'
-        self.unpacked = unpacked_dir / name
-        self.raw_image = self.unpacked / 'raw.img'
-        self.metadata = self.unpacked / 'fs_metadata.toml'
-        self.tree = self.unpacked / 'fs_tree'
-
-
-def get_ota_metadata(ota: Path) -> dict[str, str]:
-    props: dict[str, str] = {}
-
-    with zipfile.ZipFile(ota, 'r') as z:
-        with z.open('META-INF/com/android/metadata', 'r') as f:
-            for line in f:
-                line = line.decode('UTF-8').strip()
-
-                key, delim, value = line.partition('=')
-                if not delim:
-                    raise ValueError(f'Bad OTA metadata line: {line!r}')
-
-                props[key] = value
-
-    return props
-
-
-def command_patch(args: argparse.Namespace, temp_dir: Path, binaries_dir: Path):
+def run(args: argparse.Namespace, temp_dir: Path):
     logger.info("Patching OTA...")
+
+    signing_key_avb = KeyFile(
+        input_env=args.signing_key_avb_env,
+        input_file=args.signing_key_avb,
+        pass_env=args.signing_key_avb_password_env,
+        pass_file=args.signing_key_avb_password_file,
+    )
+    signing_key_ota = KeyFile(
+        input_env=args.signing_key_ota_env,
+        input_file=args.signing_key_ota,
+        pass_env=args.signing_key_ota_password_env,
+        pass_file=args.signing_key_ota_password_file,
+    )
+    signing_cert_ota = InputFile(
+        input_env=args.signing_cert_ota_env,
+        input_file=args.signing_cert_ota,
+    )
 
     # Set advanced args defaults
 
@@ -189,10 +139,10 @@ def command_patch(args: argparse.Namespace, temp_dir: Path, binaries_dir: Path):
             magisk = None
         case 'topjohnwu':
             logger.info('Will be injecting original Magisk')
-            magisk = download_magisk(binaries_dir)
+            magisk = download_magisk(BINARIES_DIR)
         case 'pixincreate':
             logger.info('Will be injecting Magisk fork pixincreate for GrapheneOS')
-            magisk = download_magisk_pixincreate(binaries_dir)
+            magisk = download_magisk_pixincreate(BINARIES_DIR)
         case _:
             if not Path(args.magisk).is_file():
                 raise Exception(f'Specified Magisk APK file does not exist: {args.magisk}')
@@ -208,21 +158,10 @@ def command_patch(args: argparse.Namespace, temp_dir: Path, binaries_dir: Path):
             logger.fatal(f'Injecting Magisk requires a --magisk-preinit-device to be specified!')
             exit(1)
 
-        args.patch_arg.append('--magisk')
-        args.patch_arg.append(magisk)
-        args.patch_arg.append('--magisk-preinit-device')
-        args.patch_arg.append(args.magisk_preinit_device)
-
-    sign_key_avb = external.SigningKey(
-        args.sign_key_avb,
-        args.pass_avb_env_var,
-        args.pass_avb_file,
-    )
-    sign_key_ota = external.SigningKey(
-        args.sign_key_ota,
-        args.pass_ota_env_var,
-        args.pass_ota_file,
-    )
+        args.patch_arg += [
+            '--magisk', magisk,
+            '--magisk-preinit-device', args.magisk_preinit_device,
+        ]
 
     inject_modules: list[modules.Module] = []
     need_boot_fs: set[str] = set()
@@ -235,14 +174,20 @@ def command_patch(args: argparse.Namespace, temp_dir: Path, binaries_dir: Path):
     # Non GKI-2.0 devices such as the Pixel 4a contain sepolicies on boot partition
     sepolicies_partition = 'vendor_boot' if ('vendor_boot' in partitions) else 'boot'
 
-    for name, module in modules.create_modules(binaries_dir, args).items():
-        logger.info(f'Will be injecting module {name}')
+    for name, module_type in modules.all_modules().items():
+        module = module_type.create(args)
+        if module is None:
+            continue
+
         inject_modules.append(module)
 
         requirements = module.requirements()
         need_boot_fs |= requirements.boot_images
         need_ext_fs |= requirements.ext_images
         need_sepolicies |= requirements.selinux_patching
+
+    logger.info('Will be injecting modules: ' +
+                ", ".join(type(m).__name__ for m in inject_modules))
 
     # If we're messing with any ext filesystems, then we need to load the system
     # images to get the list of SELinux contexts.
@@ -324,7 +269,7 @@ def command_patch(args: argparse.Namespace, temp_dir: Path, binaries_dir: Path):
             tomlkit.dump(fs.info.model_dump(exclude_none=True), f)
 
         external.pack_fs(paths.raw_image, paths.unpacked)
-        external.pack_avb(paths.image, paths.unpacked, sign_key_avb, True)
+        external.pack_avb(paths.image, paths.unpacked, signing_key_avb, True)
 
     # Repack boot images.
     for name, fs in boot_fs.items():
@@ -335,24 +280,75 @@ def command_patch(args: argparse.Namespace, temp_dir: Path, binaries_dir: Path):
 
         external.pack_cpio(paths.ramdisk, paths.unpacked)
         external.pack_boot(paths.raw_image, paths.unpacked)
-        external.pack_avb(paths.image, paths.unpacked, sign_key_avb, False)
+        external.pack_avb(paths.image, paths.unpacked, signing_key_avb, False)
 
     # Patch OTA.
     external.patch_ota(
         args.input,
         args.output,
-        sign_key_avb,
-        sign_key_ota,
-        args.sign_cert_ota,
+        signing_key_avb,
+        signing_key_ota,
+        signing_cert_ota,
         {name: images_dir / f'{name}.img' for name in boot_fs | ext_fs},
         args.patch_arg,
     )
 
     if args.generate_custota:
         # Generate Custota csig.
-        external.generate_csig(args.output, sign_key_ota, args.sign_cert_ota)
+        external.generate_csig(args.output, signing_key_ota, signing_cert_ota)
 
         # Generate Custota update-info.
-        codename = get_ota_metadata(args.output)['pre-device']
+        codename = _read_ota_metadata(args.output)['pre-device']
         update_info = args.output.parent / f'{codename}.json'
         external.generate_update_info(update_info, args.output.name)
+
+
+def _read_ota_metadata(ota_zip: Path) -> dict[str, str]:
+    props: dict[str, str] = {}
+
+    with zipfile.ZipFile(ota_zip, 'r') as z:
+        with z.open('META-INF/com/android/metadata', 'r') as f:
+            for line in f:
+                line = line.decode('UTF-8').strip()
+
+                key, delim, value = line.partition('=')
+                if not delim:
+                    raise ValueError(f'Bad OTA metadata line: {line!r}')
+
+                props[key] = value
+
+    return props
+
+
+@dataclasses.dataclass
+class BootImagePaths:
+    image: Path
+    unpacked: Path
+    raw_image: Path
+    ramdisk: Path
+    metadata: Path
+    tree: Path
+
+    def __init__(self, images_dir: Path, unpacked_dir: Path, name: str) -> None:
+        self.image = images_dir / f'{name}.img'
+        self.unpacked = unpacked_dir / name
+        self.raw_image = self.unpacked / 'raw.img'
+        self.ramdisk = self.unpacked / 'ramdisk.img.0'
+        self.metadata = self.unpacked / 'cpio.toml'
+        self.tree = self.unpacked / 'cpio_tree'
+
+
+@dataclasses.dataclass
+class ExtImagePaths:
+    image: Path
+    unpacked: Path
+    raw_image: Path
+    metadata: Path
+    tree: Path
+
+    def __init__(self, images_dir: Path, unpacked_dir: Path, name: str) -> None:
+        self.image = images_dir / f'{name}.img'
+        self.unpacked = unpacked_dir / name
+        self.raw_image = self.unpacked / 'raw.img'
+        self.metadata = self.unpacked / 'fs_metadata.toml'
+        self.tree = self.unpacked / 'fs_tree'

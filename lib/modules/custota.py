@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2024-2026 Andrew Gunnerson
 # SPDX-License-Identifier: GPL-3.0-only
-
+import argparse
 import logging
 import os
 import shutil
@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import override
 
 from lib import modules, dependencies
+from lib.external import BINARIES_DIR
 from lib.filesystem import CpioFs, ExtFs
 from lib.linux import linux_android_abi, linux_run
 from lib.modules import Module, ModuleRequirements
@@ -19,21 +20,38 @@ logger = logging.getLogger(__name__)
 
 
 class CustotaModule(Module):
-    @override
-    @staticmethod
-    def create_custom(module: Path) -> Module:
-        return CustotaModule(module)
-
-    @override
-    @staticmethod
-    def create_download(modules_dir: Path) -> Module:
-        return CustotaModule(dependencies.download_custota(modules_dir))
-
     def __init__(self, module: Path) -> None:
         super().__init__()
 
         self.zip: Path = module
         self.abi: str = linux_android_abi()
+
+    @override
+    @staticmethod
+    def create(args: argparse.Namespace) -> CustotaModule | None:
+        value: Path | bool | None = args.module_custota
+
+        if value:
+            return CustotaModule(dependencies.download_custota(BINARIES_DIR))
+        elif isinstance(value, Path):
+            if not value.is_file():
+                raise ValueError('CustotaModule module path does not exist!')
+            return CustotaModule(value)
+        else:
+            return None
+
+    @override
+    @staticmethod
+    def register_args(parser: argparse._ActionsContainer):
+        parser.add_argument(
+            '--module-custota',
+            help='Apply module that installs custom OTA updater app.',
+            metavar='<ZIP>',
+            type=Path,
+            nargs='?',
+            const=True,
+            default=None,
+        )
 
     @override
     @staticmethod

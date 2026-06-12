@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: 2024-2025 Andrew Gunnerson
 # SPDX-License-Identifier: GPL-3.0-only
+
 import argparse
 import dataclasses
 import logging
@@ -24,17 +25,21 @@ class ModuleRequirements:
 class Module(ABC):
     @staticmethod
     @abstractmethod
-    def create_custom(module: Path) -> Module:
-        ...
-
-    @staticmethod
-    @abstractmethod
-    def create_download(modules_dir: Path) -> Module:
+    def create(args: argparse.Namespace) -> Module | None:
+        """
+        Creates self with the configuration from input arguments,
+        otherwise returns None if this module is disabled.
+        """
         ...
 
     @staticmethod
     @abstractmethod
     def requirements() -> ModuleRequirements:
+        ...
+
+    @staticmethod
+    @abstractmethod
+    def register_args(parser: argparse._ActionsContainer):
         ...
 
     @abstractmethod
@@ -65,25 +70,6 @@ def all_modules() -> dict[str, type[Module]]:
         'oemunlockonboot': OEMUnlockOnBootModule,
         'twemoji': TwemojiModule,
     }
-
-
-def create_modules(modules_dir: Path, args: argparse.Namespace) -> dict[str, Module]:
-    def create(name: str, module: type[Module]) -> tuple[str, Module] | None:
-        module_path: Path | None = getattr(args, f'module_{name}')
-
-        if module_path is None:
-            return None
-        elif isinstance(module_path, Path):
-            if not module_path.is_file():
-                logger.error(f'Module {name} at {module_path} does not exist!')
-                exit(1)
-            else:
-                return name, module.create_custom(module_path)
-        else:
-            return name, module.create_download(modules_dir)
-
-    modules = [create(name, module) for name, module in all_modules().items()]
-    return dict(filter(lambda x: x is not None, modules))
 
 
 def zip_extract(

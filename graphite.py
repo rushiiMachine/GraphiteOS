@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
 
 # SPDX-FileCopyrightText: 2024-2025 Andrew Gunnerson
 # SPDX-License-Identifier: GPL-3.0-only
@@ -9,12 +9,10 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from lib import commands, dependencies
-from lib.commands.encode_keys import command_encode_keys
-from lib.commands.keys import command_keys
-from lib.commands.patch import command_patch
+from lib import commands, dependencies, external
 
 logger = logging.getLogger(__name__)
+
 
 def main():
     logging.basicConfig(
@@ -22,29 +20,24 @@ def main():
         format='\x1b[1m[%(levelname)s] %(message)s\x1b[0m',
     )
 
+    # Parse and validate args
     args = commands.parse_args()
-    binaries_dir = Path(os.getcwd()) / '.bin'
 
     # Download tool binaries
-    dependencies.download_avbroot(binaries_dir)
-    if args.command == 'patch':
-        dependencies.download_afsr(binaries_dir)
-
-        if getattr(args, 'generate_custota', False):
-            dependencies.download_custota_tool(binaries_dir)
+    dependencies.download_avbroot(external.BINARIES_DIR)
+    dependencies.download_afsr(external.BINARIES_DIR)
+    dependencies.download_custota_tool(external.BINARIES_DIR)
 
     # Add binaries dir to path
-    os.environ['PATH'] = str(binaries_dir) + ':' + os.environ['PATH']
+    os.environ['PATH'] = str(external.BINARIES_DIR) + ':' + os.environ['PATH']
 
+    # Run subcommand
     failure = False
     try:
-        if args.command == 'patch':
-            with tempfile.TemporaryDirectory() as temp_dir:
-                command_patch(args, Path(temp_dir), binaries_dir)
-        elif args.command == 'keys':
-            command_keys(args)
-        elif args.command == 'encode-keys':
-            command_encode_keys(args)
+        actions = commands.all_command_actions()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            actions[args.command](args, Path(temp_dir))
     except Exception as e:
         failure = True
         logging.error(f'Failed to run {args.command} command!', exc_info=e)

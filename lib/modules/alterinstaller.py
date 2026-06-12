@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2024-2025 Andrew Gunnerson
 # SPDX-License-Identifier: GPL-3.0-only
 
+import argparse
 import logging
 import zipfile
 from collections.abc import Iterable
@@ -8,6 +9,7 @@ from pathlib import Path
 from typing import override
 
 from lib import modules, dependencies
+from lib.external import BINARIES_DIR
 from lib.filesystem import CpioFs, ExtFs
 from lib.initscript import InitScript
 from lib.modules import Module, ModuleRequirements
@@ -16,20 +18,37 @@ logger = logging.getLogger(__name__)
 
 
 class AlterInstallerModule(Module):
-    @override
-    @staticmethod
-    def create_custom(module: Path) -> Module:
-        return AlterInstallerModule(module)
-
-    @override
-    @staticmethod
-    def create_download(modules_dir: Path) -> Module:
-        return AlterInstallerModule(dependencies.download_alterinstaller(modules_dir))
-
     def __init__(self, module: Path) -> None:
         super().__init__()
 
         self.zip: Path = module
+
+    @override
+    @staticmethod
+    def create(args: argparse.Namespace) -> AlterInstallerModule | None:
+        value: Path | bool | None = args.module_alterinstaller
+
+        if value:
+            return AlterInstallerModule(dependencies.download_alterinstaller(BINARIES_DIR))
+        elif isinstance(value, Path):
+            if not value.is_file():
+                raise ValueError('AlterInstaller module path does not exist!')
+            return AlterInstallerModule(value)
+        else:
+            return None
+
+    @override
+    @staticmethod
+    def register_args(parser: argparse._ActionsContainer):
+        parser.add_argument(
+            '--module-alterinstaller',
+            help='Apply module that spoofs Android PackageManager Installer fields.',
+            metavar='<ZIP>',
+            type=Path,
+            nargs='?',
+            const=True,
+            default=None,
+        )
 
     @override
     @staticmethod

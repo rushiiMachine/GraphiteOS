@@ -1,18 +1,43 @@
 import argparse
 from argparse import Namespace
+from pathlib import Path
+from typing import Callable
 
-from lib.commands.encode_keys import args_encode_keys
-from lib.commands.keys import args_keys
-from lib.commands.patch import args_patch
+from lib.commands import encode_keys, generate_keys, patch, server
 
 
 def parse_args() -> Namespace:
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    subparsers = parser.add_subparsers(dest='command', required=True)
+        prog='graphite',
+        description='GraphiteOS: rushii\'s rooted & modded OTA patching tool targeting GrapheneOS',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        allow_abbrev=False,
+        suggest_on_error=True,
+    )
+    parser.add_argument(
+        '--debug-shell',
+        action='store_true',
+        help='Spawn a debug shell before cleaning up the temporary directory.',
+    )
+    subparsers = parser.add_subparsers(
+        title='commands',
+        dest='command',
+        metavar='<COMMAND>',
+        required=True,
+    )
 
-    args_patch(subparsers)
-    args_keys(subparsers)
-    args_encode_keys(subparsers)
+    encode_keys.register(subparsers)
+    generate_keys.register(subparsers)
+    patch.register(subparsers)
+    server.register(subparsers)
 
     return parser.parse_args()
+
+
+def all_command_actions() -> dict[str, Callable[[argparse.Namespace, Path], None]]:
+    return {
+        'generate-keys': generate_keys.run,
+        'encode-keys': encode_keys.run,
+        'patch': patch.run,
+        'server': server.run,
+    }
