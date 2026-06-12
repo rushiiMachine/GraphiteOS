@@ -130,33 +130,47 @@ def download_file(out: Path, url: str, hash_sha256: str | None = None):
             raise Exception(f'Failed to verify hash of {url}')
 
 
+AVBROOT_VERSION = '3.30.0'
+AFSR_VERSION = '1.0.4'
+CUSTOTA_VERSION = '6.1'
+ALTERINSTALLER_VERSION = '2.3'
+BCR_VERSION = '3.1'
+MSD_VERSION = '2.0'
+
+MAGISK_VERSION = '30.7'
+MAGISK_SHA256 = 'e0d32d2123532860f97123d927b1bb86c4e08e6fd8a48bfc6b5bee0afae9ebd5'
+
+MAGISK_PIXINCREATE_VERSION = '30.7'
+MAGISK_PIXINCREATE_SHA256 = 'bdba6ab37d7b6d00981af4a82446fdbc1884da06a5f44359259670db3809ea28'
+
+
 # Download avbroot with a minimum version of 3.30.0
 def download_avbroot(binaries_dir: Path):
-    _download_chenxiaolong_binary(binaries_dir, 'avbroot', '3.30.0')
+    _download_chenxiaolong_binary(binaries_dir, 'avbroot', AVBROOT_VERSION)
 
 
 def download_afsr(binaries_dir: Path):
-    _download_chenxiaolong_binary(binaries_dir, 'afsr', '1.0.4')
+    _download_chenxiaolong_binary(binaries_dir, 'afsr', AFSR_VERSION)
 
 
 def download_custota_tool(binaries_dir: Path):
-    return _download_chenxiaolong_binary(binaries_dir, 'Custota', '6.1', 'custota-tool')
+    return _download_chenxiaolong_binary(binaries_dir, 'Custota', CUSTOTA_VERSION, 'custota-tool')
 
 
 def download_alterinstaller(binaries_dir: Path):
-    return _download_chenxiaolong_module(binaries_dir, 'AlterInstaller', '2.3')
+    return _download_chenxiaolong_module(binaries_dir, 'AlterInstaller', ALTERINSTALLER_VERSION)
 
 
 def download_bcr(modules_dir: Path) -> Path:
-    return _download_chenxiaolong_module(modules_dir, 'BCR', "3.1")
+    return _download_chenxiaolong_module(modules_dir, 'BCR', BCR_VERSION)
 
 
 def download_custota(modules_dir: Path) -> Path:
-    return _download_chenxiaolong_module(modules_dir, 'Custota', "6.1")
+    return _download_chenxiaolong_module(modules_dir, 'Custota', CUSTOTA_VERSION)
 
 
 def download_msd(modules_dir: Path) -> Path:
-    return _download_chenxiaolong_module(modules_dir, 'MSD', "2.0")
+    return _download_chenxiaolong_module(modules_dir, 'MSD', MSD_VERSION)
 
 
 def download_oemunlockonboot(modules_dir: Path) -> Path:
@@ -164,21 +178,16 @@ def download_oemunlockonboot(modules_dir: Path) -> Path:
 
 
 def download_magisk(modules_dir: Path) -> Path:
-    version = '30.7'
-    sha256 = 'e0d32d2123532860f97123d927b1bb86c4e08e6fd8a48bfc6b5bee0afae9ebd5'
+    file = modules_dir / f'magisk-{MAGISK_VERSION}.apk'
+    url = f'https://github.com/topjohnwu/Magisk/releases/download/v{MAGISK_VERSION}/Magisk-v{MAGISK_VERSION}.apk'
 
-    file = modules_dir / f'magisk-{version}.apk'
-    url = f'https://github.com/topjohnwu/Magisk/releases/download/v{version}/Magisk-v{version}.apk'
-
-    download_file(file, url, sha256)
+    download_file(file, url, MAGISK_SHA256)
     return file
 
+
 def download_magisk_pixincreate(modules_dir: Path) -> Path:
-    version = '30.7'
-    sha256 = 'bdba6ab37d7b6d00981af4a82446fdbc1884da06a5f44359259670db3809ea28'
+    file = modules_dir / f'magisk-pixincreate-{MAGISK_PIXINCREATE_VERSION}.apk'
+    url = f'https://github.com/pixincreate/Magisk/releases/download/v{MAGISK_PIXINCREATE_VERSION}/app-release.apk'
 
-    file = modules_dir / f'magisk-pixincreate-{version}.apk'
-    url = f'https://github.com/pixincreate/Magisk/releases/download/v{version}/app-release.apk'
-
-    download_file(file, url, sha256)
+    download_file(file, url, MAGISK_PIXINCREATE_SHA256)
     return file
