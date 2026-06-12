@@ -53,6 +53,7 @@ class Module(ABC):
 
 
 def all_modules() -> dict[str, type[Module]]:
+    from lib.modules.adbkeys import AdbKeysModule
     from lib.modules.alterinstaller import AlterInstallerModule
     from lib.modules.bcr import BCRModule
     from lib.modules.bootanimation import BootAnimationModule
@@ -62,6 +63,7 @@ def all_modules() -> dict[str, type[Module]]:
     from lib.modules.twemoji import TwemojiModule
 
     return {
+        'adbkeys': AdbKeysModule,
         'alterinstaller': AlterInstallerModule,
         'bcr': BCRModule,
         'bootanimation': BootAnimationModule,
