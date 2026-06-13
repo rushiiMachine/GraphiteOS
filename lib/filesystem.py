@@ -183,7 +183,10 @@ class ExtFs:
         # Find selinux label
         if label is None:
             path_str = str(path)
-            label = next(c[1] for c in self.contexts if c[0].fullmatch(path_str))
+            try:
+                label = next(c[1] for c in self.contexts if c[0].fullmatch(path_str))
+            except StopIteration:
+                raise ValueError('Unable to find matching sepolicy for new file, please specify it manually!')
         else:
             # TODO(rushii): is this null terminator needed?
             label += "\0"
@@ -207,6 +210,12 @@ class ExtFs:
                 'security.selinux': f'{label}\0',
             },
         ))
+
+    def exists(self, path: str | os.PathLike[str]) -> bool:
+        abs_path, _ = self._get_paths(path)
+        entry = self._find(abs_path)
+
+        return entry is not None
 
     def mkdir(
         self,

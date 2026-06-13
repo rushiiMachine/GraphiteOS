@@ -1,5 +1,14 @@
+# IDEs
 .idea/
+
+# Build
 __pycache__/
 /.bin/
-/.keys/
 /.tmp/
+
+# Keys
+/.keys/
+*.crt
+*.bin
+*.key
+*.pem

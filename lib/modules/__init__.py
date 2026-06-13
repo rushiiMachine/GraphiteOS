@@ -60,6 +60,7 @@ def all_modules() -> dict[str, type[Module]]:
     from lib.modules.custota import CustotaModule
     from lib.modules.msd import MSDModule
     from lib.modules.oemunlockonboot import OEMUnlockOnBootModule
+    from lib.modules.systemcerts import SystemCertsModule
     from lib.modules.twemoji import TwemojiModule
 
     return {
@@ -70,6 +71,7 @@ def all_modules() -> dict[str, type[Module]]:
         'custota': CustotaModule,
         'msd': MSDModule,
         'oemunlockonboot': OEMUnlockOnBootModule,
+        'systemcerts': SystemCertsModule,
         'twemoji': TwemojiModule,
     }
 
