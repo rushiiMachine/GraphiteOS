@@ -130,12 +130,12 @@ def download_file(out: Path, url: str, hash_sha256: str | None = None):
             raise Exception(f'Failed to verify hash of {url}')
 
 
-AVBROOT_VERSION = '3.30.0'
+AVBROOT_VERSION = '3.33.0'
 AFSR_VERSION = '1.0.4'
-CUSTOTA_VERSION = '6.1'
-ALTERINSTALLER_VERSION = '2.3'
-BCR_VERSION = '3.1'
-MSD_VERSION = '2.0'
+CUSTOTA_VERSION = '6.4'
+ALTERINSTALLER_VERSION = '2.4'
+BCR_VERSION = '3.7'
+MSD_VERSION = '2.4'
 
 MAGISK_VERSION = '30.7'
 MAGISK_SHA256 = 'e0d32d2123532860f97123d927b1bb86c4e08e6fd8a48bfc6b5bee0afae9ebd5'
