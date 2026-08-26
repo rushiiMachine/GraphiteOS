@@ -11,6 +11,7 @@ from lib.commands.common import register_keys_args
 from lib.dependencies import download_magisk, download_magisk_pixincreate
 from lib.external import BINARIES_DIR, KeyFile, InputFile
 from lib.filesystem import CpioFs, CpioInfo, ExtFs, ExtInfo
+from lib.modules import ModuleContext
 
 logger = logging.getLogger(__name__)
 
@@ -259,7 +260,12 @@ def run(args: argparse.Namespace, temp_dir: Path):
 
     # Inject modules.
     for module in inject_modules:
-        module.inject(boot_fs, ext_fs, selinux_policies)
+        module.inject(ModuleContext(
+            boot_fs=boot_fs,
+            ext_fs=ext_fs,
+            apex_fs=apex_fs,
+            sepolicies=selinux_policies,
+        ))
 
     # Repack ext filesystem images.
     for name, fs in ext_fs.items():

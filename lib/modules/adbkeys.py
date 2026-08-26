@@ -1,11 +1,8 @@
 import argparse
 import logging
-from collections.abc import Iterable
-from pathlib import Path
 from typing import override
 
-from lib.filesystem import CpioFs, ExtFs
-from lib.modules import Module, ModuleRequirements
+from lib.modules import Module, ModuleContext, ModuleRequirements
 
 logger = logging.getLogger(__name__)
 
@@ -40,21 +37,14 @@ class AdbKeysModule(Module):
     @staticmethod
     def requirements() -> ModuleRequirements:
         return ModuleRequirements(
-            boot_images=set(),
             ext_images={'system'},
-            selinux_patching=False,
         )
 
     @override
-    def inject(
-        self,
-        boot_fs: dict[str, CpioFs],
-        ext_fs: dict[str, ExtFs],
-        sepolicies: Iterable[Path],
-    ) -> None:
+    def inject(self, context: ModuleContext) -> None:
         logger.info('Injecting ADB keys:\n    ' + '\n    '.join(self.keys))
 
-        system_fs = ext_fs['system']
+        system_fs = context.ext_fs['system']
 
         with system_fs.open("/adb_keys", 'a') as f:
             f.newlines

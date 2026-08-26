@@ -2,14 +2,13 @@ import argparse
 import hashlib
 import logging
 import shutil
-from collections.abc import Iterable
 from pathlib import Path
 from typing import override
 
 from cryptography import x509
 
-from lib.filesystem import CpioFs, ExtFs
-from lib.modules import Module, ModuleRequirements
+from lib.filesystem import ExtFs
+from lib.modules import Module, ModuleContext, ModuleRequirements
 
 logger = logging.getLogger(__name__)
 
@@ -56,22 +55,15 @@ class SystemCertsModule(Module):
     @staticmethod
     def requirements() -> ModuleRequirements:
         return ModuleRequirements(
-            boot_images=set(),
             ext_images={'system'},
-            selinux_patching=False,
         )
 
     @override
-    def inject(
-        self,
-        boot_fs: dict[str, CpioFs],
-        ext_fs: dict[str, ExtFs],
-        sepolicies: Iterable[Path],
-    ) -> None:
+    def inject(self, context: ModuleContext) -> None:
         logger.info('Injecting certificates into system trust store:'
                     '\n  ' + '\n  '.join(str(path) for path in self.certs))
 
-        system_fs = ext_fs['system']
+        system_fs = context.ext_fs['system']
 
         for cert in self.certs:
             _add_certificate(system_fs, cert)

@@ -1,17 +1,16 @@
 # SPDX-FileCopyrightText: 2024-2025 Andrew Gunnerson
 # SPDX-License-Identifier: GPL-3.0-only
+
 import argparse
 import logging
 import zipfile
-from collections.abc import Iterable
 from pathlib import Path
 from typing import override
 
 from lib import modules, dependencies
 from lib.external import BINARIES_DIR
-from lib.filesystem import CpioFs, ExtFs
 from lib.initscript import InitScript
-from lib.modules import Module, ModuleRequirements
+from lib.modules import Module, ModuleContext, ModuleRequirements
 
 logger = logging.getLogger(__name__)
 
@@ -53,21 +52,14 @@ class BCRModule(Module):
     @staticmethod
     def requirements() -> ModuleRequirements:
         return ModuleRequirements(
-            boot_images=set(),
             ext_images={'system'},
-            selinux_patching=False,
         )
 
     @override
-    def inject(
-        self,
-        boot_fs: dict[str, CpioFs],
-        ext_fs: dict[str, ExtFs],
-        sepolicies: Iterable[Path],
-    ) -> None:
+    def inject(self, context: ModuleContext) -> None:
         logger.info(f'Injecting BCR: {self.zip}')
 
-        system_fs = ext_fs['system']
+        system_fs = context.ext_fs['system']
         apk = None
 
         with zipfile.ZipFile(self.zip, 'r') as z:

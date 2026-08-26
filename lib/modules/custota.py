@@ -1,20 +1,19 @@
 # SPDX-FileCopyrightText: 2024-2026 Andrew Gunnerson
 # SPDX-License-Identifier: GPL-3.0-only
+
 import argparse
 import logging
 import os
 import shutil
 import tempfile
 import zipfile
-from collections.abc import Iterable
 from pathlib import Path
 from typing import override
 
 from lib import modules, dependencies
 from lib.external import BINARIES_DIR
-from lib.filesystem import CpioFs, ExtFs
 from lib.linux import linux_android_abi, linux_run
-from lib.modules import Module, ModuleRequirements
+from lib.modules import Module, ModuleContext, ModuleRequirements
 
 logger = logging.getLogger(__name__)
 
@@ -57,21 +56,15 @@ class CustotaModule(Module):
     @staticmethod
     def requirements() -> ModuleRequirements:
         return ModuleRequirements(
-            boot_images=set(),
             ext_images={'system'},
             selinux_patching=True,
         )
 
     @override
-    def inject(
-        self,
-        boot_fs: dict[str, CpioFs],
-        ext_fs: dict[str, ExtFs],
-        sepolicies: Iterable[Path],
-    ) -> None:
+    def inject(self, context: ModuleContext) -> None:
         logger.info(f'Injecting Custota: {self.zip}')
 
-        system_fs = ext_fs['system']
+        system_fs = context.ext_fs['system']
 
         with zipfile.ZipFile(self.zip, 'r') as z:
             for path in z.namelist():
@@ -87,7 +80,7 @@ class CustotaModule(Module):
                 os.fchmod(f_temp.fileno(), 0o700)
                 f_temp.close()
 
-                for sepolicy in sepolicies:
+                for sepolicy in context.sepolicies:
                     logger.info(f'Adding Custota SELinux rules: {sepolicy}')
 
                     linux_run(

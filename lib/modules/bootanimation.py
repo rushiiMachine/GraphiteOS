@@ -1,14 +1,12 @@
 import argparse
 import logging
 import shutil
-from collections.abc import Iterable
 from importlib import resources
 from importlib.resources.abc import Traversable
 from pathlib import Path
 from typing import override
 
-from lib.filesystem import CpioFs, ExtFs
-from lib.modules import Module, ModuleRequirements
+from lib.modules import Module, ModuleContext, ModuleRequirements
 
 logger = logging.getLogger(__name__)
 
@@ -71,19 +69,12 @@ class BootAnimationModule(Module):
     @staticmethod
     def requirements() -> ModuleRequirements:
         return ModuleRequirements(
-            boot_images=set(),
             ext_images={'product'},
-            selinux_patching=False,
         )
 
     @override
-    def inject(
-        self,
-        boot_fs: dict[str, CpioFs],
-        ext_fs: dict[str, ExtFs],
-        sepolicies: Iterable[Path],
-    ) -> None:
-        product_fs = ext_fs['product']
+    def inject(self, context: ModuleContext) -> None:
+        product_fs = context.ext_fs['product']
 
         def patch_bootanimation(path: str, new: Path | Traversable):
             with new.open('rb') as src:

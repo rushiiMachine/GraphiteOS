@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 import argparse
-import dataclasses
 import logging
 import shutil
 import zipfile
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
 from lib.filesystem import CpioFs, ExtFs
@@ -15,11 +15,18 @@ from lib.filesystem import CpioFs, ExtFs
 logger = logging.getLogger(__name__)
 
 
-@dataclasses.dataclass
+@dataclass
 class ModuleRequirements:
-    boot_images: set[str]
-    ext_images: set[str]
-    selinux_patching: bool
+    boot_images: set[str] = field(default_factory=set)
+    ext_images: set[str] = field(default_factory=set)
+    selinux_patching: bool = False
+
+
+@dataclass
+class ModuleContext:
+    boot_fs: dict[str, CpioFs]
+    ext_fs: dict[str, ExtFs]
+    sepolicies: Iterable[Path]
 
 
 class Module(ABC):
@@ -43,12 +50,7 @@ class Module(ABC):
         ...
 
     @abstractmethod
-    def inject(
-        self,
-        boot_fs: dict[str, CpioFs],
-        ext_fs: dict[str, ExtFs],
-        sepolicies: Iterable[Path],
-    ) -> None:
+    def inject(self, context: ModuleContext) -> None:
         ...
 
 

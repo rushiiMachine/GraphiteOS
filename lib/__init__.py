@@ -4,7 +4,7 @@ from pathlib import Path
 import tomlkit
 
 
-def graphite_version():
+def graphite_version() -> str:
     try:
         return version("graphiteos")
     except PackageNotFoundError:
@@ -12,4 +12,4 @@ def graphite_version():
 
         with open(pyproject, 'r') as f:
             toml = tomlkit.load(f)
-            return toml['project']['version']
+            return str(toml['project']['version'])
